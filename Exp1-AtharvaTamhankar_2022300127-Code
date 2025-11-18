@@ -1,0 +1,266 @@
+#include <cctype>
+#include <iostream>
+#include <string>
+#include <vector>
+using namespace std;
+
+// --- Caesar Cipher Implementation ---
+string caesarEncrypt(string plaintext, int shift) {
+    string ciphertext = "";
+    for (char character : plaintext) {
+        char ch = tolower(character);
+        if (isalpha(ch)) {
+            int shifted = (ch - 'a' + shift) % 26;
+            ciphertext += char('a' + shifted);
+        } else {
+            ciphertext += ch;
+        }
+    }
+    return ciphertext;
+}
+
+string caesarDecrypt(string ciphertext, int shift) {
+    string plaintext = "";
+    for (char character : ciphertext) {
+        char ch = tolower(character);
+        if (isalpha(ch)) {
+            int shifted = (ch - 'a' - shift + 26) % 26;
+            plaintext += char('a' + shifted);
+        } else {
+            plaintext += ch;
+        }
+    }
+    return plaintext;
+}
+
+// --- Playfair Cipher Implementation ---
+string convertToLowerCase(string input) {
+    int length = input.length();
+    string output = "";
+    for (int i = 0; i < length; i++) {
+        if (input[i] >= 'A' && input[i] <= 'Z') {
+            output += char(input[i] + 32);
+        } else {
+            output += input[i];
+        }
+    }
+    return output;
+}
+
+string eliminateSpaces(string input) {
+    int length = input.length();
+    string result = "";
+    for (int i = 0; i < length; i++) {
+        if (input[i] != ' ') {
+            result += input[i];
+        }
+    }
+    return result;
+}
+
+void createKeyMatrix(string key, vector<vector<char>> &matrix) {
+    int keyLength = key.length();
+    matrix.clear();
+    matrix.resize(5, vector<char>(5));
+    vector<int> charMap(26, 0);
+    
+    // Mark key characters as used
+    for (int i = 0; i < keyLength; i++) {
+        if (key[i] != 'j') {
+            charMap[key[i] - 'a'] = 2;
+        }
+    }
+    charMap['j' - 'a'] = 1; // 'j' is treated as 'i'
+    
+    int row = 0, col = 0;
+    // Fill matrix with key characters first
+    for (int k = 0; k < keyLength; k++) {
+        if (charMap[key[k] - 'a'] == 2) {
+            charMap[key[k] - 'a']--;
+            matrix[row][col] = key[k];
+            col++;
+            if (col == 5) {
+                row++;
+                col = 0;
+            }
+        }
+    }
+    
+    // Fill remaining positions with unused letters
+    for (int k = 0; k < 26; k++) {
+        if (charMap[k] == 0) {
+            matrix[row][col] = char(k + 'a');
+            col++;
+            if (col == 5) {
+                row++;
+                col = 0;
+            }
+        }
+    }
+    
+    // Display the Playfair matrix
+    cout << "Playfair Key Matrix:" << endl;
+    for (int r = 0; r < 5; r++) {
+        for (int c = 0; c < 5; c++) {
+            cout << matrix[r][c] << " ";
+        }
+        cout << endl;
+    }
+}
+
+void findPositions(vector<vector<char>> &matrix, char first, char second, vector<int> &positions) {
+    if (first == 'j') first = 'i';
+    if (second == 'j') second = 'i';
+    
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            if (matrix[i][j] == first) {
+                positions[0] = i;
+                positions[1] = j;
+            } else if (matrix[i][j] == second) {
+                positions[2] = i;
+                positions[3] = j;
+            }
+        }
+    }
+}
+
+string prepareText(string text) {
+    if (text.length() % 2 != 0) {
+        text += 'x'; // Changed from 'z' to 'x'
+    }
+    return text;
+}
+
+string playfairEncryption(string text, vector<vector<char>> &matrix) {
+    int textLength = text.length();
+    vector<int> positions(4);
+    string encrypted = text;
+    
+    for (int i = 0; i < textLength; i += 2) {
+        findPositions(matrix, encrypted[i], encrypted[i + 1], positions);
+        
+        if (positions[0] == positions[2]) { // Same row
+            encrypted[i] = matrix[positions[0]][(positions[1] + 1) % 5];
+            encrypted[i + 1] = matrix[positions[0]][(positions[3] + 1) % 5];
+        } else if (positions[1] == positions[3]) { // Same column
+            encrypted[i] = matrix[(positions[0] + 1) % 5][positions[1]];
+            encrypted[i + 1] = matrix[(positions[2] + 1) % 5][positions[1]];
+        } else { // Rectangle
+            encrypted[i] = matrix[positions[0]][positions[3]];
+            encrypted[i + 1] = matrix[positions[2]][positions[1]];
+        }
+    }
+    return encrypted;
+}
+
+string playfairCipherEncrypt(string plaintext, string key) {
+    vector<vector<char>> keyMatrix;
+    key = convertToLowerCase(eliminateSpaces(key));
+    plaintext = convertToLowerCase(eliminateSpaces(plaintext));
+    plaintext = prepareText(plaintext);
+    createKeyMatrix(key, keyMatrix);
+    return playfairEncryption(plaintext, keyMatrix);
+}
+
+// --- Hill Cipher Implementation ---
+string hillCipherEncrypt(string plaintext, string key) {
+    if (plaintext.length() != 3 || key.length() != 9) {
+        return "Error: Hill cipher requires exactly 3 characters for plaintext and 9 characters for key.";
+    }
+    
+    // Create key matrix (3x3)
+    vector<vector<int>> keyMatrix(3, vector<int>(3));
+    int index = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            keyMatrix[i][j] = toupper(key[index]) - 'A';
+            index++;
+        }
+    }
+    
+    // Create message vector
+    vector<vector<int>> messageVector(3, vector<int>(1));
+    for (int i = 0; i < 3; i++) {
+        messageVector[i][0] = toupper(plaintext[i]) - 'A';
+    }
+    
+    // Perform matrix multiplication
+    vector<vector<int>> resultMatrix(3, vector<int>(1));
+    for (int i = 0; i < 3; i++) {
+        resultMatrix[i][0] = 0;
+        for (int j = 0; j < 3; j++) {
+            resultMatrix[i][0] += keyMatrix[i][j] * messageVector[j][0];
+        }
+        resultMatrix[i][0] = resultMatrix[i][0] % 26;
+    }
+    
+    // Convert result to string
+    string encryptedText = "";
+    for (int i = 0; i < 3; i++) {
+        encryptedText += char(resultMatrix[i][0] + 'A');
+    }
+    return encryptedText;
+}
+
+// --- Main Function ---
+int main() {
+    cout << "=== Cryptography Program ===" << endl;
+    cout << "Available cipher methods:" << endl;
+    cout << "1. Caesar Cipher" << endl;
+    cout << "2. Playfair Cipher" << endl;
+    cout << "3. Hill Cipher" << endl;
+    
+    int option;
+    cout << "Please select your choice (1, 2, or 3): ";
+    cin >> option;
+    cin.ignore(); // Clear input buffer
+    
+    switch (option) {
+        case 1: {
+            string inputText;
+            cout << "Enter text for Caesar cipher: ";
+            getline(cin, inputText);
+            
+            cout << "\n=== CAESAR ENCRYPTION (shift right) ===" << endl;
+            for (int shift = 0; shift < 26; shift++) {
+                string encrypted = caesarEncrypt(inputText, shift);
+                cout << "Shift " << shift << ": " << encrypted << endl;
+            }
+            
+            cout << "\n=== CAESAR DECRYPTION (shift left) ===" << endl;
+            for (int shift = 0; shift < 26; shift++) {
+                string decrypted = caesarDecrypt(inputText, shift);
+                cout << "Shift " << shift << ": " << decrypted << endl;
+            }
+            break;
+        }
+        case 2: {
+            string cipherKey, plainText;
+            cout << "Enter key for Playfair cipher: ";
+            getline(cin, cipherKey);
+            cout << "Enter plaintext: ";
+            getline(cin, plainText);
+            
+            string encryptedText = playfairCipherEncrypt(plainText, cipherKey);
+            cout << "Encrypted text: " << encryptedText << endl;
+            break;
+        }
+        case 3: {
+            string message, cipherKey;
+            cout << "Enter 3-character plaintext: ";
+            getline(cin, message);
+            cout << "Enter 9-character key: ";
+            getline(cin, cipherKey);
+            
+            string encryptedText = hillCipherEncrypt(message, cipherKey);
+            cout << "Encrypted text: " << encryptedText << endl;
+            break;
+        }
+        default:
+            cout << "Error: Invalid selection. Please choose 1, 2, or 3." << endl;
+            break;
+    }
+    
+    return 0;
+}
