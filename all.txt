@@ -1,0 +1,1091 @@
+// exp 1
+
+#include <cctype>
+#include <iostream>
+#include <string>
+#include <vector>
+using namespace std;
+
+// --- Caesar Cipher Implementation ---
+string caesarEncrypt(string plaintext, int shift) {
+    string ciphertext = "";
+    for (char character : plaintext) {
+        char ch = tolower(character);
+        if (isalpha(ch)) {
+            int shifted = (ch - 'a' + shift) % 26;
+            ciphertext += char('a' + shifted);
+        } else {
+            ciphertext += ch;
+        }
+    }
+    return ciphertext;
+}
+
+string caesarDecrypt(string ciphertext, int shift) {
+    string plaintext = "";
+    for (char character : ciphertext) {
+        char ch = tolower(character);
+        if (isalpha(ch)) {
+            int shifted = (ch - 'a' - shift + 26) % 26;
+            plaintext += char('a' + shifted);
+        } else {
+            plaintext += ch;
+        }
+    }
+    return plaintext;
+}
+
+// --- Playfair Cipher Implementation ---
+string convertToLowerCase(string input) {
+    int length = input.length();
+    string output = "";
+    for (int i = 0; i < length; i++) {
+        if (input[i] >= 'A' && input[i] <= 'Z') {
+            output += char(input[i] + 32);
+        } else {
+            output += input[i];
+        }
+    }
+    return output;
+}
+
+string eliminateSpaces(string input) {
+    int length = input.length();
+    string result = "";
+    for (int i = 0; i < length; i++) {
+        if (input[i] != ' ') {
+            result += input[i];
+        }
+    }
+    return result;
+}
+
+void createKeyMatrix(string key, vector<vector<char>> &matrix) {
+    int keyLength = key.length();
+    matrix.clear();
+    matrix.resize(5, vector<char>(5));
+    vector<int> charMap(26, 0);
+    
+    // Mark key characters as used
+    for (int i = 0; i < keyLength; i++) {
+        if (key[i] != 'j') {
+            charMap[key[i] - 'a'] = 2;
+        }
+    }
+    charMap['j' - 'a'] = 1; // 'j' is treated as 'i'
+    
+    int row = 0, col = 0;
+    // Fill matrix with key characters first
+    for (int k = 0; k < keyLength; k++) {
+        if (charMap[key[k] - 'a'] == 2) {
+            charMap[key[k] - 'a']--;
+            matrix[row][col] = key[k];
+            col++;
+            if (col == 5) {
+                row++;
+                col = 0;
+            }
+        }
+    }
+    
+    // Fill remaining positions with unused letters
+    for (int k = 0; k < 26; k++) {
+        if (charMap[k] == 0) {
+            matrix[row][col] = char(k + 'a');
+            col++;
+            if (col == 5) {
+                row++;
+                col = 0;
+            }
+        }
+    }
+    
+    // Display the Playfair matrix
+    cout << "Playfair Key Matrix:" << endl;
+    for (int r = 0; r < 5; r++) {
+        for (int c = 0; c < 5; c++) {
+            cout << matrix[r][c] << " ";
+        }
+        cout << endl;
+    }
+}
+
+void findPositions(vector<vector<char>> &matrix, char first, char second, vector<int> &positions) {
+    if (first == 'j') first = 'i';
+    if (second == 'j') second = 'i';
+    
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            if (matrix[i][j] == first) {
+                positions[0] = i;
+                positions[1] = j;
+            } else if (matrix[i][j] == second) {
+                positions[2] = i;
+                positions[3] = j;
+            }
+        }
+    }
+}
+
+string prepareText(string text) {
+    if (text.length() % 2 != 0) {
+        text += 'x'; // Changed from 'z' to 'x'
+    }
+    return text;
+}
+
+string playfairEncryption(string text, vector<vector<char>> &matrix) {
+    int textLength = text.length();
+    vector<int> positions(4);
+    string encrypted = text;
+    
+    for (int i = 0; i < textLength; i += 2) {
+        findPositions(matrix, encrypted[i], encrypted[i + 1], positions);
+        
+        if (positions[0] == positions[2]) { // Same row
+            encrypted[i] = matrix[positions[0]][(positions[1] + 1) % 5];
+            encrypted[i + 1] = matrix[positions[0]][(positions[3] + 1) % 5];
+        } else if (positions[1] == positions[3]) { // Same column
+            encrypted[i] = matrix[(positions[0] + 1) % 5][positions[1]];
+            encrypted[i + 1] = matrix[(positions[2] + 1) % 5][positions[1]];
+        } else { // Rectangle
+            encrypted[i] = matrix[positions[0]][positions[3]];
+            encrypted[i + 1] = matrix[positions[2]][positions[1]];
+        }
+    }
+    return encrypted;
+}
+
+string playfairCipherEncrypt(string plaintext, string key) {
+    vector<vector<char>> keyMatrix;
+    key = convertToLowerCase(eliminateSpaces(key));
+    plaintext = convertToLowerCase(eliminateSpaces(plaintext));
+    plaintext = prepareText(plaintext);
+    createKeyMatrix(key, keyMatrix);
+    return playfairEncryption(plaintext, keyMatrix);
+}
+
+// --- Hill Cipher Implementation ---
+string hillCipherEncrypt(string plaintext, string key) {
+    if (plaintext.length() != 3 || key.length() != 9) {
+        return "Error: Hill cipher requires exactly 3 characters for plaintext and 9 characters for key.";
+    }
+    
+    // Create key matrix (3x3)
+    vector<vector<int>> keyMatrix(3, vector<int>(3));
+    int index = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            keyMatrix[i][j] = toupper(key[index]) - 'A';
+            index++;
+        }
+    }
+    
+    // Create message vector
+    vector<vector<int>> messageVector(3, vector<int>(1));
+    for (int i = 0; i < 3; i++) {
+        messageVector[i][0] = toupper(plaintext[i]) - 'A';
+    }
+    
+    // Perform matrix multiplication
+    vector<vector<int>> resultMatrix(3, vector<int>(1));
+    for (int i = 0; i < 3; i++) {
+        resultMatrix[i][0] = 0;
+        for (int j = 0; j < 3; j++) {
+            resultMatrix[i][0] += keyMatrix[i][j] * messageVector[j][0];
+        }
+        resultMatrix[i][0] = resultMatrix[i][0] % 26;
+    }
+    
+    // Convert result to string
+    string encryptedText = "";
+    for (int i = 0; i < 3; i++) {
+        encryptedText += char(resultMatrix[i][0] + 'A');
+    }
+    return encryptedText;
+}
+
+// --- Main Function ---
+int main() {
+    cout << "=== Cryptography Program ===" << endl;
+    cout << "Available cipher methods:" << endl;
+    cout << "1. Caesar Cipher" << endl;
+    cout << "2. Playfair Cipher" << endl;
+    cout << "3. Hill Cipher" << endl;
+    
+    int option;
+    cout << "Please select your choice (1, 2, or 3): ";
+    cin >> option;
+    cin.ignore(); // Clear input buffer
+    
+    switch (option) {
+        case 1: {
+            string inputText;
+            cout << "Enter text for Caesar cipher: ";
+            getline(cin, inputText);
+            
+            cout << "\n=== CAESAR ENCRYPTION (shift right) ===" << endl;
+            for (int shift = 0; shift < 26; shift++) {
+                string encrypted = caesarEncrypt(inputText, shift);
+                cout << "Shift " << shift << ": " << encrypted << endl;
+            }
+            
+            cout << "\n=== CAESAR DECRYPTION (shift left) ===" << endl;
+            for (int shift = 0; shift < 26; shift++) {
+                string decrypted = caesarDecrypt(inputText, shift);
+                cout << "Shift " << shift << ": " << decrypted << endl;
+            }
+            break;
+        }
+        case 2: {
+            string cipherKey, plainText;
+            cout << "Enter key for Playfair cipher: ";
+            getline(cin, cipherKey);
+            cout << "Enter plaintext: ";
+            getline(cin, plainText);
+            
+            string encryptedText = playfairCipherEncrypt(plainText, cipherKey);
+            cout << "Encrypted text: " << encryptedText << endl;
+            break;
+        }
+        case 3: {
+            string message, cipherKey;
+            cout << "Enter 3-character plaintext: ";
+            getline(cin, message);
+            cout << "Enter 9-character key: ";
+            getline(cin, cipherKey);
+            
+            string encryptedText = hillCipherEncrypt(message, cipherKey);
+            cout << "Encrypted text: " << encryptedText << endl;
+            break;
+        }
+        default:
+            cout << "Error: Invalid selection. Please choose 1, 2, or 3." << endl;
+            break;
+    }
+    
+    return 0;
+}
+
+// exp 2
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <map>
+
+using namespace std;
+
+class TranspositionCiphers
+{
+private:
+    // Helper function to remove spaces and convert to uppercase
+    string preprocessText(string text)
+    {
+        string result = "";
+        for (char c : text)
+        {
+            if (isalpha(c))
+            {
+                result += toupper(c);
+            }
+        }
+        return result;
+    }
+
+public:
+    // Rail Fence Cipher Implementation
+    string railFenceEncrypt(string plaintext, int rails)
+    {
+        if (rails == 1)
+            return plaintext;
+
+        plaintext = preprocessText(plaintext);
+        vector<string> fence(rails);
+        int rail = 0;
+        bool down = false;
+
+        // Create the rail fence pattern
+        for (int i = 0; i < plaintext.length(); i++)
+        {
+            fence[rail] += plaintext[i];
+
+            if (rail == 0 || rail == rails - 1)
+            {
+                down = !down;
+            }
+
+            rail += down ? 1 : -1;
+        }
+
+        // Read off the rails
+        string ciphertext = "";
+        for (int i = 0; i < rails; i++)
+        {
+            ciphertext += fence[i];
+        }
+
+        return ciphertext;
+    }
+
+    string railFenceDecrypt(string ciphertext, int rails)
+    {
+        if (rails == 1)
+            return ciphertext;
+
+        vector<string> fence(rails);
+        vector<int> railLens(rails, 0);
+        int rail = 0;
+        bool down = false;
+
+        // Calculate length of each rail
+        for (int i = 0; i < ciphertext.length(); i++)
+        {
+            railLens[rail]++;
+
+            if (rail == 0 || rail == rails - 1)
+            {
+                down = !down;
+            }
+
+            rail += down ? 1 : -1;
+        }
+
+        // Fill the rails with ciphertext
+        int index = 0;
+        for (int i = 0; i < rails; i++)
+        {
+            fence[i] = ciphertext.substr(index, railLens[i]);
+            index += railLens[i];
+        }
+
+        // Read off in zigzag pattern
+        string plaintext = "";
+        rail = 0;
+        down = false;
+        vector<int> railIndex(rails, 0);
+
+        for (int i = 0; i < ciphertext.length(); i++)
+        {
+            plaintext += fence[rail][railIndex[rail]++];
+
+            if (rail == 0 || rail == rails - 1)
+            {
+                down = !down;
+            }
+
+            rail += down ? 1 : -1;
+        }
+
+        return plaintext;
+    }
+
+    // Columnar Transposition Cipher Implementation
+    string columnarTranspositionEncrypt(string plaintext, string key)
+    {
+        plaintext = preprocessText(plaintext);
+        key = preprocessText(key);
+
+        int keyLen = key.length();
+        int rows = (plaintext.length() + keyLen - 1) / keyLen;
+
+        // Create matrix
+        vector<vector<char>> matrix(rows, vector<char>(keyLen, 'X'));
+
+        // Fill matrix with plaintext
+        int index = 0;
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < keyLen && index < plaintext.length(); j++)
+            {
+                matrix[i][j] = plaintext[index++];
+            }
+        }
+
+        // Create key order
+        vector<pair<char, int>> keyOrder;
+        for (int i = 0; i < keyLen; i++)
+        {
+            keyOrder.push_back({key[i], i});
+        }
+        sort(keyOrder.begin(), keyOrder.end());
+
+        // Read columns in key order
+        string ciphertext = "";
+        for (int k = 0; k < keyLen; k++)
+        {
+            int col = keyOrder[k].second;
+            for (int i = 0; i < rows; i++)
+            {
+                ciphertext += matrix[i][col];
+            }
+        }
+
+        return ciphertext;
+    }
+
+    string columnarTranspositionDecrypt(string ciphertext, string key)
+    {
+        key = preprocessText(key);
+
+        int keyLen = key.length();
+        int rows = ciphertext.length() / keyLen;
+
+        // Create key order
+        vector<pair<char, int>> keyOrder;
+        for (int i = 0; i < keyLen; i++)
+        {
+            keyOrder.push_back({key[i], i});
+        }
+        sort(keyOrder.begin(), keyOrder.end());
+
+        // Create matrix and fill with ciphertext
+        vector<vector<char>> matrix(rows, vector<char>(keyLen));
+        int index = 0;
+
+        for (int k = 0; k < keyLen; k++)
+        {
+            int col = keyOrder[k].second;
+            for (int i = 0; i < rows; i++)
+            {
+                matrix[i][col] = ciphertext[index++];
+            }
+        }
+
+        // Read row by row
+        string plaintext = "";
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < keyLen; j++)
+            {
+                if (matrix[i][j] != 'X')
+                {
+                    plaintext += matrix[i][j];
+                }
+            }
+        }
+
+        return plaintext;
+    }
+
+    // Double Transposition Cipher Implementation
+    string doubleTranspositionEncrypt(string plaintext, string key1, string key2)
+    {
+        // First transposition
+        string intermediate = columnarTranspositionEncrypt(plaintext, key1);
+        // Second transposition
+        string ciphertext = columnarTranspositionEncrypt(intermediate, key2);
+        return ciphertext;
+    }
+
+    string doubleTranspositionDecrypt(string ciphertext, string key1, string key2)
+    {
+        // Reverse the process: decrypt with key2 first, then key1
+        string intermediate = columnarTranspositionDecrypt(ciphertext, key2);
+        string plaintext = columnarTranspositionDecrypt(intermediate, key1);
+        return plaintext;
+    }
+
+    // Menu-driven interface
+    void runMenu()
+    {
+        int choice;
+        string plaintext, ciphertext, key, key1, key2;
+        int rails;
+
+        while (true)
+        {
+            cout << "\n=== TRANSPOSITION CIPHER MENU ===" << endl;
+            cout << "1. Rail Fence Cipher" << endl;
+            cout << "2. Columnar Transposition Cipher" << endl;
+            cout << "3. Double Transposition Cipher" << endl;
+            cout << "4. Quit" << endl;
+            cout << "Enter your choice (1-4): ";
+            cin >> choice;
+            cin.ignore(); // Clear the newline character
+
+            switch (choice)
+            {
+            case 1:
+            {
+                cout << "\n--- RAIL FENCE CIPHER ---" << endl;
+                cout << "Enter plaintext: ";
+                getline(cin, plaintext);
+                cout << "Enter number of rails: ";
+                cin >> rails;
+                cin.ignore();
+
+                ciphertext = railFenceEncrypt(plaintext, rails);
+                cout << "Encrypted text: " << ciphertext << endl;
+
+                string decrypted1 = railFenceDecrypt(ciphertext, rails);
+                cout << "Decrypted text: " << decrypted1 << endl;
+                break;
+            }
+
+            case 2:
+            {
+                cout << "\n--- COLUMNAR TRANSPOSITION CIPHER ---" << endl;
+                cout << "Enter plaintext: ";
+                getline(cin, plaintext);
+                cout << "Enter key: ";
+                getline(cin, key);
+
+                ciphertext = columnarTranspositionEncrypt(plaintext, key);
+                cout << "Encrypted text: " << ciphertext << endl;
+
+                string decrypted2 = columnarTranspositionDecrypt(ciphertext, key);
+                cout << "Decrypted text: " << decrypted2 << endl;
+                break;
+            }
+
+            case 3:
+            {
+                cout << "\n--- DOUBLE TRANSPOSITION CIPHER ---" << endl;
+                cout << "Enter plaintext: ";
+                getline(cin, plaintext);
+                cout << "Enter first key: ";
+                getline(cin, key1);
+                cout << "Enter second key: ";
+                getline(cin, key2);
+
+                ciphertext = doubleTranspositionEncrypt(plaintext, key1, key2);
+                cout << "Encrypted text: " << ciphertext << endl;
+
+                string decrypted3 = doubleTranspositionDecrypt(ciphertext, key1, key2);
+                cout << "Decrypted text: " << decrypted3 << endl;
+                break;
+            }
+
+            case 4:
+                cout << "Exiting program. Goodbye!" << endl;
+                return;
+
+            default:
+                cout << "Invalid choice! Please enter 1-4." << endl;
+                break;
+            }
+        }
+    }
+};
+
+int main()
+{
+    TranspositionCiphers cipher;
+
+    cout << "Welcome to Transposition Ciphers Implementation!" << endl;
+    cout << "This program implements Rail Fence, Columnar Transposition, and Double Transposition ciphers." << endl;
+
+    cipher.runMenu();
+
+    return 0;
+}
+
+// exp 3
+import random
+from math import gcd
+
+# ---------- Modular arithmetic helpers ----------
+def mod_exp(base, exp, mod):
+    result = 1
+    base %= mod
+    while exp > 0:
+        if exp & 1:
+            result = (result * base) % mod
+        base = (base * base) % mod
+        exp >>= 1
+    return result
+
+def mod_inverse(e, phi):
+    # Extended Euclidean Algorithm
+    t, newt = 0, 1
+    r, newr = phi, e
+    while newr != 0:
+        q = r // newr
+        t, newt = newt, t - q * newt
+        r, newr = newr, r - q * newr
+    if r > 1:
+        return None
+    if t < 0:
+        t += phi
+    return t
+
+# ---------- Prime generation ----------
+def is_prime(n, k=5):
+    if n < 2: return False
+    for p in [2, 3, 5, 7, 11, 13, 17, 19, 23]:
+        if n % p == 0:
+            return n == p
+    # Miller-Rabin
+    d, r = n - 1, 0
+    while d % 2 == 0:
+        d //= 2
+        r += 1
+    for _ in range(k):
+        a = random.randrange(2, n - 2)
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1: continue
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1: break
+        else:
+            return False
+    return True
+
+def generate_prime(bits=8):
+    while True:
+        candidate = random.getrandbits(bits)
+        candidate |= 1
+        if is_prime(candidate):
+            return candidate
+
+# ---------- RSA Implementation ----------
+class RSA:
+    def __init__(self, bits=8):
+        self.p = generate_prime(bits)
+        self.q = generate_prime(bits)
+        while self.q == self.p:
+            self.q = generate_prime(bits)
+        self.n = self.p * self.q
+        self.phi = (self.p - 1) * (self.q - 1)
+
+        self.e = 3
+        while gcd(self.e, self.phi) != 1:
+            self.e += 2
+
+        self.d = mod_inverse(self.e, self.phi)
+
+    def encrypt(self, m):
+        return mod_exp(m, self.e, self.n)
+
+    def decrypt(self, c):
+        return mod_exp(c, self.d, self.n)
+
+# ---------- Menu ----------
+def main():
+    rsa = None
+    while True:
+        print("\n--- RSA MENU ---")
+        print("1. Generate RSA Keys")
+        print("2. Encrypt Message")
+        print("3. Decrypt Message")
+        print("4. Quit")
+
+        choice = input("Enter choice: ")
+
+        if choice == "1":
+            rsa = RSA(bits=8)
+            print(f"Primes p={rsa.p}, q={rsa.q}")
+            print(f"Public Key (e, n): ({rsa.e}, {rsa.n})")
+            print(f"Private Key (d, n): ({rsa.d}, {rsa.n})")
+
+        elif choice == "2":
+            if rsa is None:
+                print("Generate keys first!")
+                continue
+            m = int(input("Enter message (number < n): "))
+            c = rsa.encrypt(m)
+            print(f"Ciphertext: {c}")
+
+        elif choice == "3":
+            if rsa is None:
+                print("Generate keys first!")
+                continue
+            c = int(input("Enter ciphertext: "))
+            m = rsa.decrypt(c)
+            print(f"Decrypted Message: {m}")
+
+        elif choice == "4":
+            break
+
+        else:
+            print("Invalid choice!")
+
+if __name__ == "__main__":
+    main()
+
+
+// exp 4
+#!/usr/bin/env python3
+"""
+Exp04 - Diffie-Hellman Key Exchange
+Author: Atharva Tamhankar
+UID: 2022300127
+Experiment: Exp04
+"""
+
+import secrets
+import hashlib
+import sys
+
+DEFAULT_G = 2
+
+# ---------- Miller-Rabin primality test ----------
+def is_probable_prime(n, k=8):
+    if n < 2:
+        return False
+    small_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+    for p in small_primes:
+        if n % p == 0:
+            return n == p
+    d = n - 1
+    s = 0
+    while d % 2 == 0:
+        d //= 2
+        s += 1
+    for _ in range(k):
+        a = secrets.randbelow(n - 3) + 2
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1:
+            continue
+        for __ in range(s - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+
+def generate_prime(bits=512):
+    while True:
+        candidate = secrets.randbits(bits) | (1 << (bits - 1)) | 1
+        if is_probable_prime(candidate):
+            return candidate
+
+# ---------- Key Derivation ----------
+def kdf_sha256(shared_int):
+    length = (shared_int.bit_length() + 7) // 8
+    s_bytes = shared_int.to_bytes(length if length > 0 else 1, "big")
+    return hashlib.sha256(s_bytes).digest()
+
+# ---------- Demo XOR cipher (not secure) ----------
+def xor_stream(data: bytes, key: bytes) -> bytes:
+    out = bytearray()
+    for i, b in enumerate(data):
+        out.append(b ^ key[i % len(key)])
+    return bytes(out)
+
+# ---------- Menu ----------
+def menu():
+    state = {
+        "p": None, "g": None,
+        "alice": None, "bob": None,
+        "shared_alice": None, "shared_bob": None,
+        "derived_key": None
+    }
+
+    def pick_params():
+        print("\n1) Generate demo prime (512/1024 bits)")
+        print("2) Enter custom p and g")
+        choice = input("Choose option: ").strip()
+        if choice == "1":
+            bits = input("Bit-length (default 512): ").strip()
+            bits = int(bits) if bits.isdigit() else 512
+            p = generate_prime(bits)
+            g = DEFAULT_G
+        elif choice == "2":
+            p = int(input("Enter p (prime): "))
+            g = int(input("Enter g (generator): "))
+        else:
+            print("Invalid option.")
+            return
+        state["p"], state["g"] = p, g
+        print(f"Selected p (bits={p.bit_length()}), g={g}")
+
+    def gen_keys():
+        if state["p"] is None:
+            print("Select parameters first.")
+            return
+        hide = input("Hide private keys? (y/n) [y]: ").strip().lower() or "y"
+        hide_bool = hide == "y"
+        a = secrets.randbelow(state["p"] - 3) + 2
+        b = secrets.randbelow(state["p"] - 3) + 2
+        A = pow(state["g"], a, state["p"])
+        B = pow(state["g"], b, state["p"])
+        state["alice"] = {"priv": a if not hide_bool else None, "priv_val": a, "pub": A}
+        state["bob"] = {"priv": b if not hide_bool else None, "priv_val": b, "pub": B}
+        print("Generated keys.")
+        print("Alice pub A =", A)
+        print("Bob   pub B =", B)
+        if not hide_bool:
+            print("Alice priv a =", a)
+            print("Bob   priv b =", b)
+
+    def compute_shared_secret():
+        if not state["alice"] or not state["bob"]:
+            print("Generate keys first.")
+            return
+        a = state["alice"]["priv_val"]
+        b = state["bob"]["priv_val"]
+        A = state["alice"]["pub"]
+        B = state["bob"]["pub"]
+        K_a = pow(B, a, state["p"])
+        K_b = pow(A, b, state["p"])
+        state["shared_alice"], state["shared_bob"] = K_a, K_b
+        print("Shared secret computed.")
+        print("K_A bits =", K_a.bit_length())
+        print("K_B bits =", K_b.bit_length())
+        print("Equal?:", "Yes" if K_a == K_b else "No")
+
+    def derive_and_demo():
+        if state["shared_alice"] is None:
+            print("Compute shared secret first.")
+            return
+        K = state["shared_alice"]
+        key = kdf_sha256(K)
+        state["derived_key"] = key
+        print("Derived key (SHA-256):", key.hex())
+        msg = input("Enter plaintext: ").encode()
+        cipher = xor_stream(msg, key)
+        plain = xor_stream(cipher, key)
+        print("Ciphertext (hex):", cipher.hex())
+        print("Recovered:", plain.decode(errors="replace"))
+
+    def show_state():
+        print("\nState summary:")
+        print("p bits:", state["p"].bit_length() if state["p"] else None)
+        print("g:", state["g"])
+        print("Alice pub:", state["alice"]["pub"] if state["alice"] else None)
+        print("Bob   pub:", state["bob"]["pub"] if state["bob"] else None)
+        print("Shared equal?:",
+              (state["shared_alice"] == state["shared_bob"]) if state["shared_alice"] else None)
+
+    actions = {
+        "1": pick_params,
+        "2": gen_keys,
+        "3": compute_shared_secret,
+        "4": derive_and_demo,
+        "5": show_state,
+        "q": lambda: sys.exit(0),
+    }
+
+    while True:
+        print("\n=== Diffie-Hellman Lab Menu ===")
+        print("1) Select / Generate Public Parameters (p, g)")
+        print("2) Generate Keys for Alice and Bob")
+        print("3) Compute Shared Secret")
+        print("4) Derive Key & Encrypt/Decrypt (demo)")
+        print("5) Show State")
+        print("q) Quit")
+        choice = input("Choice: ").strip()
+        if choice in actions:
+            try:
+                actions[choice]()
+            except Exception as e:
+                print("Error:", e)
+        else:
+            print("Invalid choice.")
+
+if __name__ == "__main__":
+    print("Diffie-Hellman Lab Demo — Exp04")
+    # print("Author: Atharva Tamhankar (UID: 2022300127)")
+    menu()
+
+
+// exp 5
+# Atharva Tamhankar - 2022300127
+
+import hashlib
+import os
+BLOCK_SIZE = 65536
+def generate_hashes(file_path):
+    md5_hash = hashlib.md5()
+    sha1_hash = hashlib.sha1()
+    sha256_hash = hashlib.sha256()
+    sha512_hash = hashlib.sha512()
+    try:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(BLOCK_SIZE):
+                md5_hash.update(chunk)
+                sha1_hash.update(chunk)
+                sha256_hash.update(chunk)
+                sha512_hash.update(chunk)
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    return {
+        'MD5': md5_hash.hexdigest(),
+        'SHA-1': sha1_hash.hexdigest(),
+        'SHA-256': sha256_hash.hexdigest(),
+        'SHA-512': sha512_hash.hexdigest(),
+    }
+def create_hash_report(file_path, hashes):
+    report_filename = r"C:\Users\tanis\Downloads\hash_report.txt"
+    with open(report_filename, 'w') as f:
+        f.write(f"Hash Report for file: {os.path.basename(file_path)}\n")
+        f.write("=" * 50 + "\n")
+        for algorithm, hash_value in hashes.items():
+            f.write(f"{algorithm:<10}: {hash_value}\n")
+    print(f"Successfully created hash report: {report_filename}")
+
+def create_checksum_file(file_path, hash_algorithm='sha256'):
+    checksum_filename = f"{file_path}.{hash_algorithm}"
+    hasher = hashlib.new(hash_algorithm)
+    try:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(BLOCK_SIZE):
+                hasher.update(chunk)
+    except FileNotFoundError:
+        print(f"Error: Could not create checksum. File not found at {file_path}")
+        return
+    file_hash = hasher.hexdigest()
+    filename = os.path.basename(file_path)
+    with open(checksum_filename, 'w') as f:
+        f.write(f"{file_hash}  {filename}")
+    print(f"Successfully created checksum file: {checksum_filename}")
+def verify_checksum(checksum_file_path):
+    try:
+        with open(checksum_file_path, 'r') as f:
+            line = f.readline()
+            stored_hash, original_filename = line.strip().split("  ", 1)
+    except FileNotFoundError:
+        print(f"Error: Checksum file not found at {checksum_file_path}")
+        return
+    except ValueError:
+        print(f"Error: Checksum file '{checksum_file_path}' has incorrect format.")
+        return
+    hash_algorithm = checksum_file_path.split('.')[-1]
+    hasher = hashlib.new(hash_algorithm)
+    try:
+        with open(original_filename, 'rb') as f:
+            while chunk := f.read(BLOCK_SIZE):
+                hasher.update(chunk)
+        current_hash = hasher.hexdigest()
+    except FileNotFoundError:
+        print(f"Error: Original file '{original_filename}' not found for verification.")
+        return
+    print(f"Stored Hash  : {stored_hash}")
+    print(f"Computed Hash: {current_hash}")
+    if stored_hash == current_hash:
+        print("Verification Result: Checksum OK (Authentic) ✅\n")
+    else:
+        print("Verification Result: Checksum FAILED (Tampered) ❌\n")
+
+if __name__ == "__main__":
+    input_file = r"C:\Users\tanis\Downloads\example.txt"
+    with open(input_file, 'w') as f:
+        f.write("The 2019 Cricket World Cup final at Lord's between England and New Zealand stands as a monumental event, not just in sports history.\n")
+        f.write("The match concluded in a heart-stopping tie, with both teams scoring exactly 241 runs in their allotted 50 overs.\n")
+        f.write("A tie in a high-stakes final is a statistically rare occurrence, setting the stage for an even more improbable conclusion.\n")
+        f.write("The first tie-breaker was a 'Super Over,' a single-over eliminator where each team faces six balls to score as many runs as possible.\n")
+        f.write("In a stunning display of symmetry, the Super Over also ended in a tie, with both England and New Zealand scoring 15 runs each.\n")
+        f.write("The odds of a tie followed by a second tie in the eliminator are astronomically low, creating a scenario that the rulebook had barely anticipated.\n")
+        f.write("\n") 
+        f.write("With the scores level twice, the winner was decided by a controversial and now-defunct tie-breaker: the boundary countback rule.\n")
+        f.write("The team that had scored more boundaries (fours and sixes) throughout their main 50-over innings and the Super Over would be declared the winner.\n")
+        f.write("England had scored a total of 26 boundaries, while New Zealand had managed only 17.\n")
+        f.write("Consequently, England was crowned the World Champion for the first time.\n")
+        f.write("This method of victory was purely a product of a secondary statistical metric, one that had no direct bearing on the primary objective of scoring runs.\n")
+        f.write("The decision sparked widespread debate about the fairness of a rule that felt arbitrary in such a critical moment\n")
+        f.write("\n") 
+        f.write("This match serves as a perfect text for integrity checks.\n")
+        f.write("A single altered digit—changing the boundary count from 26 to 25, or the final score from 241 to 240—would fundamentally change the narrative and the outcome.\n")
+        f.write("The integrity of these numbers is paramount.\n")
+        f.write("The aftermath saw the International Cricket Council (ICC) scrap the boundary count rule for future tournaments.\n")
+        f.write("This ensures that the primary skill of scoring runs, rather than a secondary statistic, determines the champion.\n")
+        f.write("The 2019 final remains a testament to the razor-thin margins in elite sport and a powerful example of how data, rules.\n")
+
+    print(f"--- Step 1: Generating Hashes for '{input_file}' ---")
+    all_hashes = generate_hashes(input_file)
+    if all_hashes:
+        create_hash_report(input_file, all_hashes)
+    print("-" * 50)
+    print(f"\n--- Step 2: Creating Checksum File ---")
+    checksum_algo = 'sha256'
+    checksum_file = f"{input_file}.{checksum_algo}"
+    create_checksum_file(input_file, checksum_algo)
+    print("-" * 50)
+    print(f"\n--- Step 3: Verification (Before Tampering) ---")
+    verify_checksum(checksum_file)
+    print("-" * 50)
+    print(f"\n--- Step 4: Tampering Test ---")
+    print(f"Modifying '{input_file}' by adding a new line...")
+    with open(input_file, 'a') as f:
+        f.write("\nThis line was added to tamper with the file.")
+    print("File has been tampered with.")
+    print("\n--- Re-running Verification (After Tampering) ---")
+    verify_checksum(checksum_file)
+    print("-" * 50)
+
+
+// exp 6
+sudo apt-get install gnupg -y
+gpg --version
+
+cat > alice_key_params <<EOF
+%no-protection
+Key-Type: RSA
+Key-Length: 2048
+Name-Real: Alice Example
+Name-Email: alice@example.com
+Expire-Date: 0
+%commit
+EOF
+gpg --batch --generate-key alice_key_params
+
+cat > bob_key_params <<EOF
+%no-protection
+Key-Type: RSA
+Key-Length: 2048
+Name-Real: Bob Example
+Name-Email: bob@example.com
+Expire-Date: 0
+%commit
+EOF
+gpg --batch --generate-key bob_key_params
+
+gpg --armor --export alice@example.com > alice_pub.asc
+gpg --armor --export bob@example.com > bob_pub.asc
+gpg --import alice_pub.asc
+gpg --import bob_pub.asc
+
+echo "Hi Alice, this is a secret message" > message.txt
+gpg --encrypt --recipient alice@example.com --armor -o message_to_alice.asc message.txt
+
+gpg --output decrypted.txt --decrypt message_to_alice.asc
+cat decrypted.txt
+
+echo "Report content" > report.pdf
+cp report.pdf report_original.pdf
+gpg --output report.sig --detach-sign report.pdf
+gpg --verify report.sig report.pdf
+
+echo "tampered!" >> report.pdf
+gpg --verify report.sig report.pdf
+
+sudo apt-get update -y
+sudo apt-get install expect -y
+
+cat > charlie_key_params <<EOF
+%no-protection
+Key-Type: RSA
+Key-Length: 2048
+Name-Real: Charlie Example
+Name-Email: charlie@example.com
+Expire-Date: 0
+%commit
+EOF
+gpg --batch --generate-key charlie_key_params
+
+gpg --output charlie_revocation.asc --gen-revoke charlie@example.com <<EOF
+y
+0
+Revoking key
+y
+EOF
+
+
+// exp 8
+
+
+#!/bin/bash
+sudo iptables -L
+sudo iptables -P INPUT DROP
+sudo iptables -P FORWARD DROP
+sudo iptables -P OUTPUT ACCEPT
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -A INPUT -s 192.168.1.100 -j DROP
+sudo iptables-save > /etc/iptables/rules.v4
